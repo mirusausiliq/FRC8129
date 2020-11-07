@@ -7,6 +7,10 @@
 
 package frc.robot;
 
+import com.revrobotics.CANSparkMax;
+import com.revrobotics.CANSparkMaxLowLevel.MotorType;
+
+import com.analog.adis16448.frc.ADIS16448_IMU;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.XboxController;
@@ -15,6 +19,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj.SpeedControllerGroup;
 import com.ctre.phoenix.motorcontrol.can.WPI_VictorSPX;
+import edu.wpi.first.wpilibj.Encoder;
 
 /**
  * The VM is configured to automatically run this class, and to call the
@@ -34,23 +39,30 @@ public class Robot extends TimedRobot {
   WPI_VictorSPX LBMotor; // 左後
   WPI_VictorSPX RBMotor; // 右後
 
+  WPI_VictorSPX ArmMotor;
+  WPI_VictorSPX HMotorA;
+  WPI_VictorSPX HMotorB;
+
   WPI_VictorSPX LSMotor; // 左投
   WPI_VictorSPX RSMotor; // 右投
   WPI_VictorSPX XMotor; // 左右
-  WPI_VictorSPX YMotor; // 上下
+  CANSparkMax BMotor; // 上下
 
-  // SpeedControllerGroup FMotors; //前排馬達群組
   SpeedControllerGroup RMotors; // 右側馬達群組
   SpeedControllerGroup LMotors; // 左側馬達群組
-  SpeedControllerGroup SMotors; // 投射馬達群組
+  SpeedControllerGroup HangMotors; // 爬升馬達群組
 
   double LSpeed; // 左
   double RSpeed; // 右
 
-  double SSpeed; // 投射
-  double XMSpeed; // 左右
-  double YMSpeed; // 上下
+  double Hang;
 
+  double InB;
+  double OutB;
+
+  int SparkId=5;
+  int Arm;
+  int Encord;
   int auto;
   /**
    * This function is run when the robot is first started up and should be used
@@ -64,21 +76,27 @@ public class Robot extends TimedRobot {
     m_robotContainer = new RobotContainer();
 
     StickB = new XboxController(0);
-    // StickS=new XboxController(1);
+    StickS=new XboxController(1);
 
     RFMotor = new WPI_VictorSPX(4);
     RBMotor = new WPI_VictorSPX(3);
     LFMotor = new WPI_VictorSPX(2);
     LBMotor = new WPI_VictorSPX(1);
 
-    // LSMotor=new WPI_VictorSPX();
-    // RSMotor=new WPI_VictorSPX();
-    // XMotor=new WPI_VictorSPX();
-    // YMotor=new WPI_VictorSPX();
+    BMotor = new CANSparkMax(5,MotorType.kBrushless);
+    HMotorA = new WPI_VictorSPX(7);
+    HMotorB = new WPI_VictorSPX(8);
+    ArmMotor = new WPI_VictorSPX(6);
 
     RMotors = new SpeedControllerGroup(RFMotor, RBMotor);
     LMotors = new SpeedControllerGroup(LFMotor, LBMotor);
+    HangMotors = new SpeedControllerGroup(HMotorA, HMotorB);
   }
+
+  Timer Autotimer = new Timer();
+  Timer ArmTimer = new Timer();
+  Encoder Encoder = new Encoder(2,4);
+  ADIS16448_IMU imu = new ADIS16448_IMU();
 
   /**
    * This function is called every robot packet, no matter the mode. Use this for
@@ -116,31 +134,58 @@ public class Robot extends TimedRobot {
   
   auto = 0;
   
-  timer.reset();
+  Autotimer.reset();
   }
-
-  Timer timer = new Timer();
 
   @Override
   public void autonomousPeriodic() 
   {
-    switch (auto)
+    switch(Encord)
     {
-    case 0:
-      if(timer.get()==0)
+      case 0:
+        if(Encoder.get()>=5)
+        {
+          RMotors.set(0);
+          LMotors.set(0);
+          Encord++;
+        }
+        if(imu.getGyroAngleX()==0)
+        {
+          RMotors.set(0.3);
+          LMotors.set(-0.3);
+        }
+        else if(imu.getGyroAngleX() > 0 && imu.getGyroAngleX()<180)
+        {
+          RMotors.set(0.1);
+          LMotors.set(-0.3);
+        }
+        else if(imu.getGyroAngleX() < 360 && imu.getGyroAngleX()>180)
+        {
+          RMotors.set(0.3);
+          LMotors.set(-0.1);
+        }
+      case 1:
+        break;
+    }
+    switch(auto)
+    {
+      case 0:
+      if(Autotimer.get()==0)
       {
-        timer.start();
+        Autotimer.start();
       }
-      RMotors.set(0.2);
-      LMotors.set(-0.1);
-      if(timer.get()>=5)
+      if(Autotimer.get()==0.5)
       {
-        RMotors.set(0);
-        LMotors.set(0);
+        ArmMotor.set(0);
+        BMotor.set(-0.2);
         auto++;
       }
-    case 1:
-      break;
+      else
+      {
+        ArmMotor.set(0.2);
+      }
+      case 1:
+        break;
     }
   }
   @Override
@@ -170,6 +215,47 @@ public class Robot extends TimedRobot {
 
     RMotors.set(RSpeed);
     LMotors.set(LSpeed);
+
+    //------------------------------------
+
+    if(StickB.getBumper(Hand.kLeft))
+    {
+      ArmMotor.set(-0.2);
+    }
+    else if(StickB.getBumper(Hand.kRight))
+    {
+      ArmMotor.set(0.2);
+    }
+    else
+    {
+      ArmMotor.set(0);
+    }
+
+    if(StickB.getYButton())
+    {
+      BMotor.set(0.02);
+    }
+    else if(!StickB.getYButton())
+    {
+      BMotor.set(0);
+    }
+
+    if(StickB.getBButton())
+    {
+      HangMotors.set(0.5);
+    }
+    else if(!StickB.getBButton() )
+    {
+      HangMotors.set(0);
+    }
+    if(StickB.getAButton())
+    {
+      HangMotors.set(-0.5);
+    }
+    else if(!StickB.getAButton())
+    {
+      HangMotors.set(0);
+    }
   }
 
   @Override
