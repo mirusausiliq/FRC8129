@@ -1,1 +1,9 @@
 # FRC-8129
+I don't wanna complain about it, but their arrogant provoke my dissatisfied...
+8129 is the team that can't do everything well.
+U know why they always lose the game?
+'cause they doesn't work, like their robot, and they think playing equals to working.
+When I was codeing in few months ago, they did not want to help and they forlicked aside, it's really disturb my feelings.
+Also, the leader was playing with them, and said why did I still codeing, I was so dissatisfied....
+There's a saying:" A man cannot live without heart".
+What a shame on themselves...
